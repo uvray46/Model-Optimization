@@ -1,0 +1,62 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+
+# Set random seed for reproducibility
+random_seed_number = 42
+np.random.seed(random_seed_number)
+
+# Load the diabetes data
+data_path = r'C:\Users\jwhit\OneDrive\Documents\Data Science Course\KNN Grid Search\diabetes.csv'
+diabetes_data = pd.read_csv(data_path)
+
+# Replace zeros with NaN in specified columns
+columns_with_zeros = ['Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI']
+diabetes_data[columns_with_zeros] = diabetes_data[columns_with_zeros].replace(0, np.nan)
+
+# Replace NaNs with mean/median values
+diabetes_data['Glucose'].fillna(diabetes_data['Glucose'].mean(), inplace=True)
+diabetes_data['BloodPressure'].fillna(diabetes_data['BloodPressure'].mean(), inplace=True)
+diabetes_data['SkinThickness'].fillna(diabetes_data['SkinThickness'].median(), inplace=True)
+diabetes_data['Insulin'].fillna(diabetes_data['Insulin'].median(), inplace=True)
+diabetes_data['BMI'].fillna(diabetes_data['BMI'].median(), inplace=True)
+
+# Define the y variable as the Outcome column
+X = diabetes_data.drop(columns=['Outcome'])
+y = diabetes_data['Outcome']
+
+# Create a 70/30 train and test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=random_seed_number)
+
+# Standardize the features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Implement GridSearchCV to find the optimal number of estimators in Random Forest
+param_grid = {'n_estimators': np.arange(10, 200, 10)}  # Testing values from 10 to 190 in steps of 10
+rf = RandomForestClassifier(random_state=random_seed_number)
+rf_cv = GridSearchCV(rf, param_grid, cv=5)
+rf_cv.fit(X_train_scaled, y_train)
+
+# Print the best score and best parameter for n_estimators
+print("Best Score:", rf_cv.best_score_)
+print("Best Parameters:", rf_cv.best_params_)
+
+# Fit the best model and evaluate on test data
+best_rf = rf_cv.best_estimator_
+best_rf.fit(X_train_scaled, y_train)
+y_pred = best_rf.predict(X_test_scaled)
+conf_matrix = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:\n", conf_matrix)
+
+# Plot feature importances
+plt.figure(figsize=(10, 6))
+sns.barplot(x=best_rf.feature_importances_, y=X.columns)
+plt.title('Feature Importances from Random Forest')
+plt.show()
